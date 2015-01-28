@@ -11,6 +11,7 @@ import java.io.PrintWriter;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
@@ -78,7 +79,7 @@ public class LuceneHandler {
     public static void main(String[] args) {
 //        new LuceneHandler().formatDump("./dump.dat");
 //        new LuceneHandler().createIndex();
-//        new LuceneHandler().createTestSet();
+//        new LuceneHandler().createTestSet(20000);
         new LuceneHandler().testSpeed();
     }
 
@@ -131,8 +132,35 @@ public class LuceneHandler {
         } catch (IOException | InterruptedException e) {
         }
     }
+    
+    public void testLive(HashMap<String,Double>[] input) {
+        try {
+//            Scanner scan = new Scanner(Paths.get("./testSet.txt"));
+//            String[] values = scan.nextLine().split(";");
+            List<HashMap<String,Double>> test = new ArrayList<>((Arrays.asList(input)));
+            long timeB = System.nanoTime();
+            
+            
+            int threads=4;
+            Thread[] threadA= new Thread[threads];
+            for (int x = 0; x < threads; x++) {
+                List<HashMap<String,Double>> sublist=test.subList(x*test.size()/threads, (x+1)*test.size()/threads);
+                threadA[x] = new Thread(() -> {
+                    threadAction(sublist);
+                });
+                threadA[x].start();
+            }
+            for(Thread t:threadA){
+                t.join();
+            }
+            long timeA = System.nanoTime();
+            System.out.println((timeA - timeB) / (Math.pow(10, 6)));
 
-    public void threadAction(List<String> list) {
+        } catch ( InterruptedException e) {
+        }
+    }
+
+    public void threadAction(HashMap<String,Double> list) {
         try {
             Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_46);
             IndexReader reader = DirectoryReader.open(FSDirectory.open(new File("./UniProt_Index")));
@@ -142,8 +170,8 @@ public class LuceneHandler {
             QueryParser parser = new QueryParser(Version.LUCENE_46, "uniprot", analyzer);
             List<String> result = new ArrayList<>();
 
-            for (String s : list) {
-                Query query = parser.parse(s);
+            for (Map.Entry<String,Double> s : list.entrySet()) {
+                Query query = parser.parse(s.getKey());
                 TopDocs docs = indexSearcher.search(query, 1);
                 if (docs.totalHits == 0) {
                     continue;
