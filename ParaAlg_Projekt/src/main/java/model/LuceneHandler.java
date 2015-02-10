@@ -18,6 +18,7 @@ import java.util.Scanner;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.util.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -36,7 +37,6 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
-
 /**
  *
  * @author Tim Pontzen
@@ -119,7 +119,7 @@ public class LuceneHandler {
             for (int x = 0; x < threads; x++) {
                 List<String> sublist=test.subList(x*test.size()/threads, (x+1)*test.size()/threads);
                 threadA[x] = new Thread(() -> {
-                    threadAction(sublist);
+//                    threadAction(sublist);
                 });
                 threadA[x].start();
             }
@@ -137,18 +137,17 @@ public class LuceneHandler {
         try {
 //            Scanner scan = new Scanner(Paths.get("./testSet.txt"));
 //            String[] values = scan.nextLine().split(";");
-            List<HashMap<String,Double>> test = new ArrayList<>((Arrays.asList(input)));
+            List<Pair<String,Double>> results=new ArrayList<>();
             long timeB = System.nanoTime();
             
             
-            int threads=4;
-            Thread[] threadA= new Thread[threads];
-            for (int x = 0; x < threads; x++) {
-                List<HashMap<String,Double>> sublist=test.subList(x*test.size()/threads, (x+1)*test.size()/threads);
-                threadA[x] = new Thread(() -> {
-                    threadAction(sublist);
-                });
-                threadA[x].start();
+            List<Thread> threadA= new ArrayList<>();
+            for (HashMap<String,Double> map:input) {
+//                List<HashMap<String,Double>> sublist=test.subList(x*test.size()/threads, (x+1)*test.size()/threads);
+                threadA.add( new Thread(() -> {
+                    threadAction(map,results);
+                }));
+                threadA.get(threadA.size()).start();
             }
             for(Thread t:threadA){
                 t.join();
@@ -159,8 +158,13 @@ public class LuceneHandler {
         } catch ( InterruptedException e) {
         }
     }
-
-    public void threadAction(HashMap<String,Double> list) {
+    
+    /**
+     * subtasks for the threads.
+     * @param map Data to read and search for.
+     * @param results
+     */
+    public void threadAction(HashMap<String,Double> map,List<Pair<String,Double>> results) {
         try {
             Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_46);
             IndexReader reader = DirectoryReader.open(FSDirectory.open(new File("./UniProt_Index")));
@@ -168,15 +172,15 @@ public class LuceneHandler {
             IndexSearcher indexSearcher = new IndexSearcher(reader);
 
             QueryParser parser = new QueryParser(Version.LUCENE_46, "uniprot", analyzer);
-            List<String> result = new ArrayList<>();
 
-            for (Map.Entry<String,Double> s : list.entrySet()) {
+            for (Map.Entry<String,Double> s : map.entrySet()) {
                 Query query = parser.parse(s.getKey());
                 TopDocs docs = indexSearcher.search(query, 1);
                 if (docs.totalHits == 0) {
                     continue;
                 }
-                result.add(indexSearcher.doc(docs.scoreDocs[0].doc).get("culsterNodeId"));
+                results.add(new Pair<>(indexSearcher.doc(docs.scoreDocs[0].doc).get("culsterNodeId"),
+                        s.getValue()));
 
             }
         } catch (IOException | ParseException ex) {
