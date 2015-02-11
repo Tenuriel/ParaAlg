@@ -9,8 +9,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Paths;
+import java.sql.ResultSet;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +18,6 @@ import java.util.Scanner;
 import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.util.Pair;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
@@ -28,7 +27,6 @@ import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
@@ -37,50 +35,18 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
+
 /**
  *
  * @author Tim Pontzen
  */
 public class LuceneHandler {
 
-    String path = "./index_Martin_HPRD/lucene/node/uniprotidsearch";
-    String path2 = "./index_Martin_HPRD/lucene/relationship/__rel_types__";
-
-    public void readIndex() {
-        try {
-            Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_46);
-            IndexReader reader = DirectoryReader.open(FSDirectory.open(new File(path)));
-
-            IndexSearcher indexSearcher = new IndexSearcher(reader);
-//            TreeMap<String,String> map= new TreeMap<>();
-            PrintWriter pw = new PrintWriter("extractedIndex.txt", "UTF-8");
-            Document doc;
-            StringBuilder sB = null;
-            for (int x = 0; x < reader.numDocs(); x++) {
-                doc = reader.document(x);
-
-                sB = new StringBuilder("");
-                for (IndexableField f : doc.getFields()) {
-                    sB.append(f.name());
-                    sB.append(": ");
-                    sB.append(f.stringValue());
-                    sB.append(";");
-                }
-                pw.println(sB.toString());
-            }
-            pw.flush();
-            int x = 0;
-
-        } catch (IOException ex) {
-            Logger.getLogger(LuceneHandler.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
     public static void main(String[] args) {
 //        new LuceneHandler().formatDump("./dump.dat");
 //        new LuceneHandler().createIndex();
 //        new LuceneHandler().createTestSet(20000);
-        new LuceneHandler().testSpeed();
+        new ConnectionHandler(5000);
     }
 
     /**
@@ -106,65 +72,42 @@ public class LuceneHandler {
         }
 
     }
-
-    public void testSpeed() {
-        try {
-            Scanner scan = new Scanner(Paths.get("./testSet.txt"));
-            String[] values = scan.nextLine().split(";");
-            List<String> test = new ArrayList<>((Arrays.asList(values)));
-            long timeB = System.nanoTime();
-            
-            int threads=4;
-            Thread[] threadA= new Thread[threads];
-            for (int x = 0; x < threads; x++) {
-                List<String> sublist=test.subList(x*test.size()/threads, (x+1)*test.size()/threads);
-                threadA[x] = new Thread(() -> {
-//                    threadAction(sublist);
-                });
-                threadA[x].start();
-            }
-            for(Thread t:threadA){
-                t.join();
-            }
-            long timeA = System.nanoTime();
-            System.out.println((timeA - timeB) / (Math.pow(10, 6)));
-
-        } catch (IOException | InterruptedException e) {
-        }
-    }
     
-    public void testLive(HashMap<String,Double>[] input) {
+    /**
+     * method to process the Data sent from the other application
+     * @param input HashMap containing the uniProtid,Value 
+     * @return List of Pairs with clusterids and values
+     */
+    public static List<Pair<String, Double>> processInput(HashMap<String, Double>[] input) {
+        List<Pair<String, Double>> results = new ArrayList<>();
         try {
-//            Scanner scan = new Scanner(Paths.get("./testSet.txt"));
-//            String[] values = scan.nextLine().split(";");
-            List<Pair<String,Double>> results=new ArrayList<>();
             long timeB = System.nanoTime();
-            
-            
-            List<Thread> threadA= new ArrayList<>();
-            for (HashMap<String,Double> map:input) {
-//                List<HashMap<String,Double>> sublist=test.subList(x*test.size()/threads, (x+1)*test.size()/threads);
-                threadA.add( new Thread(() -> {
-                    threadAction(map,results);
+
+            List<Thread> threadA = new ArrayList<>();
+            for (HashMap<String, Double> map : input) {
+                threadA.add(new Thread(() -> {
+                    threadAction(map, results);
                 }));
                 threadA.get(threadA.size()).start();
             }
-            for(Thread t:threadA){
+            for (Thread t : threadA) {
                 t.join();
             }
             long timeA = System.nanoTime();
             System.out.println((timeA - timeB) / (Math.pow(10, 6)));
 
-        } catch ( InterruptedException e) {
+        } catch (InterruptedException e) {
         }
+        return results;
     }
-    
+
     /**
      * subtasks for the threads.
+     *
      * @param map Data to read and search for.
      * @param results
      */
-    public void threadAction(HashMap<String,Double> map,List<Pair<String,Double>> results) {
+    public static void threadAction(HashMap<String, Double> map, List<Pair<String, Double>> results) {
         try {
             Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_46);
             IndexReader reader = DirectoryReader.open(FSDirectory.open(new File("./UniProt_Index")));
@@ -173,7 +116,7 @@ public class LuceneHandler {
 
             QueryParser parser = new QueryParser(Version.LUCENE_46, "uniprot", analyzer);
 
-            for (Map.Entry<String,Double> s : map.entrySet()) {
+            for (Map.Entry<String, Double> s : map.entrySet()) {
                 Query query = parser.parse(s.getKey());
                 TopDocs docs = indexSearcher.search(query, 1);
                 if (docs.totalHits == 0) {
