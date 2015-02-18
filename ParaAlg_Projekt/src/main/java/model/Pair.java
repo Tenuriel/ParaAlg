@@ -5,11 +5,13 @@
  */
 package model;
 
+import java.io.Serializable;
+
 /**
  *
  * @author Tim Pontzen
  */
-public class Pair<K,V> {
+public class Pair<K,V> implements Serializable{
     /**
      * key of this pair.
      */

@@ -12,9 +12,6 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.swing.JOptionPane;
 
 /**
@@ -38,9 +35,13 @@ public class Sender {
     
     
     public static void main(String[] args){
-        Sender s= new Sender(5000, "localhost");
+        Sender s= new Sender(6000, "localhost");
         s.connect();
-        s.transaction(null);
+        List<HashMap<String,Double>> test = new ArrayList<>();
+        HashMap<String,Double> test2= new HashMap<>();
+        test2.put("Q9NPI0", 3.0);
+        test.add(test2);
+        s.transaction(test);
     }
     
     public Sender() {
@@ -76,14 +77,15 @@ public class Sender {
      * @param input
      * @return 
      */
-    public List<Pair<String, Double>> transaction(HashMap<String, Double>[] input) {
+    public List<Pair<String, Double>> transaction(List<HashMap<String, Double>> input) {
         if (!socket.isClosed()) {
             try {
-                ObjectInputStream is = new ObjectInputStream(socket.getInputStream());
                 ObjectOutputStream os = new ObjectOutputStream(socket.getOutputStream());
+                ObjectInputStream is = new ObjectInputStream(socket.getInputStream());
 
                 os.writeObject(input);
                 List<Pair<String, Double>> ret=(List<Pair<String, Double>>) is.readObject();
+                System.out.println(ret.get(0).getValue());
 //                socket.close();
                 return ret;
             } catch (IOException ex) {

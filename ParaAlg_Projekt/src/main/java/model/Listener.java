@@ -6,14 +6,11 @@
 package model;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.util.HashMap;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.List;
 
 /**
  *
@@ -32,14 +29,14 @@ public class Listener {
         executer = new Thread(() -> {
             ObjectInputStream is;
             try {
-                is = new ObjectInputStream(socket.getInputStream());
                 ObjectOutputStream os= new ObjectOutputStream(socket.getOutputStream());
+                is = new ObjectInputStream(socket.getInputStream());
                 while (!executer.isInterrupted()) {
                     Object o=is.readObject();
-                    if(o instanceof HashMap[]){
-                        HashMap<String,Double>[] input = (HashMap<String,Double>[]) o;
-                        
-                        os.writeObject(LuceneHandler.processInput(input));
+                    if(o instanceof List){
+                        List<HashMap<String,Double>> input = (List<HashMap<String,Double>>) o;
+                        List<Pair<String,Double>> output=LuceneHandler.processInput(input);
+                        os.writeObject(output);
                         shutdown();
                     }
                 }
@@ -47,7 +44,7 @@ public class Listener {
                 System.out.println("Unexpected event while listening: "+ex.getMessage());
             }
         });
-        executer.setDaemon(true);
+//        executer.setDaemon(true);
         executer.start();
 
     }
@@ -60,7 +57,7 @@ public class Listener {
      */
     public void shutdown() throws IOException,InterruptedException {
 //        executer.interrupt();
-        socket.close();
+//        socket.close();
     }
 
 }

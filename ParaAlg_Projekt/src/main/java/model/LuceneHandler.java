@@ -9,7 +9,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Paths;
-import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -46,7 +45,15 @@ public class LuceneHandler {
 //        new LuceneHandler().formatDump("./dump.dat");
 //        new LuceneHandler().createIndex();
 //        new LuceneHandler().createTestSet(20000);
-        new ConnectionHandler(5000);
+        int port;
+        if(args.length>=1){
+            port=Integer.valueOf(args[0]);
+        }
+        else{
+            port=5000;
+        }
+        System.out.println(port);
+        new ConnectionHandler(port);
     }
 
     /**
@@ -78,17 +85,18 @@ public class LuceneHandler {
      * @param input HashMap containing the uniProtid,Value 
      * @return List of Pairs with clusterids and values
      */
-    public static List<Pair<String, Double>> processInput(HashMap<String, Double>[] input) {
+    public static List<Pair<String, Double>> processInput(List<HashMap<String, Double>> input) {
         List<Pair<String, Double>> results = new ArrayList<>();
         try {
             long timeB = System.nanoTime();
 
             List<Thread> threadA = new ArrayList<>();
+//            threadAction(input.get(0), results);
             for (HashMap<String, Double> map : input) {
                 threadA.add(new Thread(() -> {
                     threadAction(map, results);
                 }));
-                threadA.get(threadA.size()).start();
+                threadA.get(threadA.size()-1).start();
             }
             for (Thread t : threadA) {
                 t.join();
@@ -131,82 +139,6 @@ public class LuceneHandler {
         }
     }
 
-    public void formatDump(String pathToFile) {
-        try {
-            Scanner scan = new Scanner(Paths.get(pathToFile));
-            TreeMap<String, List<String>> map = new TreeMap<>();
-            String[] tmp;
-            while (scan.hasNext()) {
-                tmp = scan.nextLine().split(";");
-                if (tmp.length < 2) {
-                    continue;
-                }
-                if (map.containsKey(tmp[0])) {
-                    List<String> list = map.get(tmp[0]);
-                    //add clusterids to list
-                    for (int x = 1; x < tmp.length; x++) {
-                        list.add(tmp[x]);
-                    }
-                } else {
-                    List<String> list = new ArrayList<>();
-                    map.put(tmp[0], list);
-                    //add clusterids to list
-                    for (int x = 1; x < tmp.length; x++) {
-                        list.add(tmp[x]);
-                    }
-                }
-            }
-
-            //test
-            PrintWriter pw = new PrintWriter("formatedDump.txt", "UTF-8");
-            TreeMap<String, String> tmpMap = new TreeMap<>();
-            for (Map.Entry<String, List<String>> entry : map.entrySet()) {
-                for (String s : entry.getValue()) {
-                    if (tmpMap.containsKey(s)) {
-                        tmpMap.put(s, tmpMap.get(s) + ":" + entry.getKey());
-                    } else {
-                        tmpMap.put(s, entry.getKey());
-                    }
-                }
-            }
-            for (Map.Entry<String, String> entry : tmpMap.entrySet()) {
-                pw.print(entry.getKey() + ";");
-                pw.println(entry.getValue());
-            }
-            pw.close();
-
-        } catch (IOException ex) {
-            Logger.getLogger(LuceneHandler.class
-                    .getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
-    public void createIndex() {
-        try {
-            Scanner scan = new Scanner(Paths.get("./formatedDump.txt"));
-            Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_46);
-            Directory dir = FSDirectory.open(new File("UniProt_Index"));
-            IndexWriterConfig conf = new IndexWriterConfig(Version.LUCENE_46, analyzer);
-            conf.setOpenMode(IndexWriterConfig.OpenMode.CREATE_OR_APPEND);
-            IndexWriter writer = new IndexWriter(dir, conf);
-            String[] line;
-            Document doc;
-
-            while (scan.hasNextLine()) {
-                doc = new Document();
-                line = scan.nextLine().split(";");
-                doc.add(new Field("uniprot", line[0], TextField.TYPE_STORED));
-                doc.add(new Field("clusterNodeId", line[1], TextField.TYPE_STORED));
-                writer.addDocument(doc);
-
-            }
-            writer.prepareCommit();
-            writer.commit();
-            writer.close();
-            scan.close();
-
-        } catch (IOException ex) {
-        }
-    }
+    
 
 }
