@@ -117,9 +117,10 @@ public class Main {
                 pw.println(entry.getValue());
             }
             pw.close();
+            input.setText("done");
 
         } catch (IOException ex) {
-
+            input.setText(ex.getMessage());
         }
     }
     
@@ -149,8 +150,10 @@ public class Main {
             writer.commit();
             writer.close();
             scan.close();
+            input.setText("done");
 
         } catch (IOException ex) {
+            input.setText(ex.getMessage());
         }
     }
     class ButtonLis implements ActionListener{
@@ -158,9 +161,9 @@ public class Main {
         @Override
         public void actionPerformed(ActionEvent ae) {
             if(ae.getSource()==create){
-                
+                createIndex();
             }else if(ae.getSource()==format){
-                
+                formatDump(input.getText());
             }
         }
         
